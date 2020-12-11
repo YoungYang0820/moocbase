@@ -78,26 +78,80 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.get.
     @Override
     public LeafNode get(DataBox key) {
-        // TODO(proj2): implement
+        int i = 0;
+        for (; i < this.keys.size(); i++) {
+            if (key.compareTo(keys.get(i)) < 0) {
+                return LeafNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i));
+            }
+        }
 
-        return null;
+        return LeafNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i));
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
         assert(children.size() > 0);
-        // TODO(proj2): implement
-
-        return null;
+        return LeafNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(0));
     }
 
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
+        BPlusNode child = findChild(key);
 
-        return Optional.empty();
+        Optional<Pair<DataBox, Long>> childResult = child.put(key, rid);
+        if (childResult.isEmpty()) return childResult;
+        
+        DataBox splitKey = childResult.get().getFirst();
+        Long rightNodePageNum = childResult.get().getSecond();
+
+        int i = 0;
+        for (; i < keys.size(); i++) {
+            int isLarger = keys.get(i).compareTo(key);
+            if (isLarger == 0) {
+                throw new BPlusTreeException("Duplicate key");
+            } else if (isLarger > 0) {
+                this.keys.add(i, splitKey);
+                this.children.add(i+1, rightNodePageNum);
+                break;
+            }
+        }
+        if (i == keys.size()) {
+            this.keys.add(splitKey);
+            this.children.add(rightNodePageNum);
+        }
+
+        int d = this.metadata.getOrder();
+        if (this.keys.size() <= d * 2) {
+            sync();
+            return Optional.empty();
+        } else {
+            List<DataBox> rightKeys = new ArrayList<>();
+            List<Long> rightChildren = new ArrayList<>();
+            while (this.keys.size() > d) {
+                rightKeys.add(this.keys.remove(d));
+                rightChildren.add(this.children.remove(d+1));
+            }
+
+            DataBox split = rightKeys.remove(0);
+            InnerNode node = new InnerNode(this.metadata, this.bufferManager, rightKeys, rightChildren, this.treeContext);
+            Pair<DataBox, Long> pair = new Pair<>(split, node.page.getPageNum());
+            sync();
+            return Optional.of(pair);
+        }
+    }
+
+    private BPlusNode findChild(DataBox key) {
+        int i = 0;
+        for (; i < this.keys.size(); i++) {
+            DataBox box = this.keys.get(i);
+            if (box.compareTo(key) > 0) {
+                return BPlusNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i));
+            }
+        }
+        
+        return BPlusNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i));
     }
 
     // See BPlusNode.bulkLoad.

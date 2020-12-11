@@ -142,25 +142,52 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.get.
     @Override
     public LeafNode get(DataBox key) {
-        // TODO(proj2): implement
-
-        return null;
+        return this;
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
-        // TODO(proj2): implement
-
-        return null;
+        return this;
     }
 
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
+        int i = 0;
+        for (; i < keys.size(); i++) {
+            int isLarger = keys.get(i).compareTo(key);
+            if (isLarger == 0) {
+                throw new BPlusTreeException("Duplicate key");
+            } else if (isLarger > 0) {
+                this.keys.add(i, key);
+                this.rids.add(i, rid);
+                break;
+            }
+        }
+        if (i == keys.size()) {
+            this.keys.add(key);
+            this.rids.add(rid);
+        }
 
-        return Optional.empty();
+        int d = this.metadata.getOrder();
+        if (this.keys.size() <= d * 2) {
+            sync();
+            return Optional.empty();
+        } else {
+            List<DataBox> rightKeys = new ArrayList<>();
+            List<RecordId> rightRids = new ArrayList<>();
+            while (this.keys.size() > d) {
+                rightKeys.add(this.keys.remove(d));
+                rightRids.add(this.rids.remove(d));
+            }
+
+            LeafNode node = new LeafNode(this.metadata, this.bufferManager, rightKeys, rightRids, this.rightSibling, this.treeContext);
+            this.rightSibling = Optional.of(node.getPage().getPageNum());
+            Pair<DataBox, Long> pair = new Pair<>(rightKeys.get(0), node.getPage().getPageNum());
+            sync();
+            return Optional.of(pair);
+        }
     }
 
     // See BPlusNode.bulkLoad.

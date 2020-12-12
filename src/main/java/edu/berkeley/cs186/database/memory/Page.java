@@ -134,6 +134,7 @@ public class Page {
      * Loads the page into a frame (if necessary) and pins it.
      */
     public void pin() {
+        //System.out.println(this + "pin");
         this.frame = this.frame.requestValidFrame();
     }
 
@@ -141,6 +142,7 @@ public class Page {
      * Unpins the frame containing this page. Does not flush immediately.
      */
     public void unpin() {
+        //System.out.println(this + "unpin");
         this.frame.unpin();
     }
 

@@ -196,9 +196,7 @@ public class BPlusTree {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
 
-        // TODO(proj2): Return a BPlusTreeIterator.
-
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator(this.root.getLeftmostLeaf(), 0);
     }
 
     /**
@@ -228,8 +226,12 @@ public class BPlusTree {
         typecheck(key);
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
-
-        // TODO(proj2): Return a BPlusTreeIterator.
+        LeafNode node = this.root.get(key);
+        for (int i = 0; i < node.getKeys().size(); i++) {
+            if (node.getKeys().get(i).compareTo(key) >= 0) {
+                return new BPlusTreeIterator(node, i);
+            }
+        }
 
         return Collections.emptyIterator();
     }
@@ -419,20 +421,29 @@ public class BPlusTree {
 
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
-        // TODO(proj2): Add whatever fields and constructors you want here.
+        private LeafNode node;
+        private int index;
+
+        public BPlusTreeIterator(LeafNode node, int index) {
+            this.node = node;
+            this.index = index;
+        }
 
         @Override
         public boolean hasNext() {
-            // TODO(proj2): implement
-
-            return false;
+            boolean res = node != null && index < node.getKeys().size();
+            return res;
         }
 
         @Override
         public RecordId next() {
-            // TODO(proj2): implement
-
-            throw new NoSuchElementException();
+            if (!hasNext()) throw new NoSuchElementException();
+            RecordId rid = node.getRids().get(index++);
+            if (index >= node.getKeys().size()) {
+                node = node.getRightSibling().orElse(null);
+                index = 0;
+            }
+            return rid;
         }
     }
 }

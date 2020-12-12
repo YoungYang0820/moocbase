@@ -81,18 +81,18 @@ class InnerNode extends BPlusNode {
         int i = 0;
         for (; i < this.keys.size(); i++) {
             if (key.compareTo(keys.get(i)) < 0) {
-                return LeafNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i));
+                return BPlusNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i)).get(key);
             }
         }
 
-        return LeafNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i));
+        return BPlusNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(i)).get(key);
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
         assert(children.size() > 0);
-        return LeafNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(0));
+        return BPlusNode.fromBytes(metadata, bufferManager, treeContext, this.children.get(0)).getLeftmostLeaf();
     }
 
     // See BPlusNode.put.

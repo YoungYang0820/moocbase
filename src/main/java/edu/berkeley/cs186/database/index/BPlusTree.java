@@ -227,6 +227,7 @@ public class BPlusTree {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
         LeafNode node = this.root.get(key);
+
         for (int i = 0; i < node.getKeys().size(); i++) {
             if (node.getKeys().get(i).compareTo(key) >= 0) {
                 return new BPlusTreeIterator(node, i);
@@ -288,11 +289,23 @@ public class BPlusTree {
     public void bulkLoad(Iterator<Pair<DataBox, RecordId>> data, float fillFactor) {
         // TODO(proj4_integration): Update the following line
         LockUtil.ensureSufficientLockHeld(lockContext, LockType.NL);
+        if (!this.root.getLeftmostLeaf().getKeys().isEmpty()) {
+            throw new BPlusTreeException("tree is not empty when bulkloading");
+        }
 
-        // TODO(proj2): implement
-        // Note: You should NOT update the root variable directly.
-        // Use the provided updateRoot() helper method to change
-        // the tree's root if the old root splits.
+        while (data.hasNext()) {
+            Optional<Pair<DataBox, Long>> res = this.root.bulkLoad(data, fillFactor);
+        
+            if (res.isPresent()) {
+                List<DataBox> keys = new ArrayList<>();
+                List<Long> children = new ArrayList<>();
+                keys.add(res.get().getFirst());
+                children.add(this.root.getPage().getPageNum());
+                children.add(res.get().getSecond());
+                InnerNode node = new InnerNode(metadata, bufferManager, keys, children, lockContext);
+                this.updateRoot(node);
+            }
+        }
 
         return;
     }
@@ -438,7 +451,9 @@ public class BPlusTree {
         @Override
         public RecordId next() {
             if (!hasNext()) throw new NoSuchElementException();
+
             RecordId rid = node.getRids().get(index++);
+
             if (index >= node.getKeys().size()) {
                 node = node.getRightSibling().orElse(null);
                 index = 0;

@@ -154,9 +154,11 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
+        // Add key and rid to proper position
         int i = 0;
         for (; i < keys.size(); i++) {
             int isLarger = keys.get(i).compareTo(key);
+
             if (isLarger == 0) {
                 throw new BPlusTreeException("Duplicate key");
             } else if (isLarger > 0) {
@@ -170,13 +172,16 @@ class LeafNode extends BPlusNode {
             this.rids.add(rid);
         }
 
+        // If exceed order * 2, split and copy first entry of right child as split key.
         int d = this.metadata.getOrder();
         if (this.keys.size() <= d * 2) {
             sync();
+
             return Optional.empty();
         } else {
             List<DataBox> rightKeys = new ArrayList<>();
             List<RecordId> rightRids = new ArrayList<>();
+
             while (this.keys.size() > d) {
                 rightKeys.add(this.keys.remove(d));
                 rightRids.add(this.rids.remove(d));
@@ -186,6 +191,7 @@ class LeafNode extends BPlusNode {
             this.rightSibling = Optional.of(node.getPage().getPageNum());
             Pair<DataBox, Long> pair = new Pair<>(rightKeys.get(0), node.getPage().getPageNum());
             sync();
+
             return Optional.of(pair);
         }
     }
@@ -194,12 +200,36 @@ class LeafNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
-        // TODO(proj2): implement
+        while (data.hasNext()) {
+            Pair<DataBox, RecordId> pair = data.next();
+            this.keys.add(pair.getFirst());
+            this.rids.add(pair.getSecond());
 
+            int threshold = (int) Math.ceil(this.metadata.getOrder() * 2 * fillFactor);
+            if (this.keys.size() > threshold) {
+                List<DataBox> rightKeys = new ArrayList<>();
+                List<RecordId> rightRids = new ArrayList<>();
+
+                rightKeys.add(this.keys.remove(threshold));
+                rightRids.add(this.rids.remove(threshold));
+
+                LeafNode node = new LeafNode(this.metadata, this.bufferManager, rightKeys, rightRids, this.rightSibling, this.treeContext);
+                this.rightSibling = Optional.of(node.getPage().getPageNum());
+                Pair<DataBox, Long> newPair = new Pair<>(rightKeys.get(0), node.getPage().getPageNum());
+                sync();
+
+                return Optional.of(newPair);
+            }
+        }
+
+        sync();
         return Optional.empty();
     }
 
     // See BPlusNode.remove.
+    /**
+     * Remove the key and corresponding rid directly, don't rebalance.
+     */
     @Override
     public void remove(DataBox key) {
         int index = keys.indexOf(key);
@@ -412,6 +442,7 @@ class LeafNode extends BPlusNode {
         int pairs = buf.getInt();
         List<DataBox> keys = new ArrayList<DataBox>();
         List<RecordId> rids = new ArrayList<RecordId>();
+
         for (int i = 0; i < pairs; i++) {
             keys.add(DataBox.fromBytes(buf, metadata.getKeySchema()));
             rids.add(RecordId.fromBytes(buf));

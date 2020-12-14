@@ -88,7 +88,16 @@ class BNLJOperator extends JoinOperator {
          * and leftRecord should be set to null.
          */
         private void fetchNextLeftBlock() {
-            // TODO(proj3_part1): implement
+            int B = BNLJOperator.this.numBuffers;
+
+            if (!leftIterator.hasNext()) {
+                leftRecord = null;
+                leftRecordIterator = null;
+            }
+
+            leftRecordIterator = BNLJOperator.this.getBlockIterator(this.getLeftTableName(), leftIterator, B - 2);
+            leftRecordIterator.markNext();
+            leftRecord = leftRecordIterator.next();
         }
 
         /**
@@ -100,7 +109,13 @@ class BNLJOperator extends JoinOperator {
          * should be set to null.
          */
         private void fetchNextRightPage() {
-            // TODO(proj3_part1): implement
+            if (!this.rightIterator.hasNext()) {
+                rightRecordIterator = null;
+                return;
+            }
+
+            this.rightRecordIterator = BNLJOperator.this.getBlockIterator(this.getRightTableName(), this.rightIterator, 1);
+            rightRecordIterator.markNext();
         }
 
         /**
@@ -110,7 +125,35 @@ class BNLJOperator extends JoinOperator {
          * @throws NoSuchElementException if there are no more Records to yield
          */
         private void fetchNextRecord() {
-            // TODO(proj3_part1): implement
+            if (this.leftRecord == null) throw new NoSuchElementException("No new record to fetch");
+            this.nextRecord = null;
+
+            do {
+                if (rightRecordIterator.hasNext()) {
+                    Record rightRecord = this.rightRecordIterator.next();
+                    DataBox leftJoinValue = this.leftRecord.getValues().get(BNLJOperator.this.getLeftColumnIndex());
+                    DataBox rightJoinValue = rightRecord.getValues().get(BNLJOperator.this.getRightColumnIndex());
+                    if (leftJoinValue.equals(rightJoinValue)) {
+                        this.nextRecord = joinRecords(leftRecord, rightRecord);
+                    }
+                } else {
+                    if (leftRecordIterator.hasNext()) {
+                        this.leftRecord = leftRecordIterator.next();
+                        this.rightRecordIterator.reset();
+                    } else {
+                        fetchNextRightPage();
+                        if (this.rightRecordIterator == null) {
+                            fetchNextLeftBlock();
+                            if (this.leftRecordIterator == null) throw new NoSuchElementException("No new record to fetch");
+                            this.rightIterator.reset();
+                            fetchNextRightPage();
+                        } else {
+                            this.leftRecordIterator.reset();
+                            this.leftRecord = leftRecordIterator.next();
+                        }
+                    }
+                }
+            } while (!hasNext());
         }
 
         /**

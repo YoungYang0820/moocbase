@@ -329,10 +329,7 @@ public class QueryPlan {
         QueryOperator minOp = null;
 
         // Find the cost of a sequential scan of the table
-        // minOp = new SequentialScanOperator(this.transaction, table);
-
-        // TODO(proj3_part2): implement
-
+        minOp = new SequentialScanOperator(this.transaction, table);
         // 1. Find the cost of a sequential scan of the table
 
         // 2. For each eligible index column, find the cost of an index scan of the
@@ -340,8 +337,20 @@ public class QueryPlan {
 
         // 3. Push down SELECT predicates that apply to this table and that were not
         // used for an index scan
-
-        return minOp;
+        List<Integer> eligibleIndexColumns = getEligibleIndexColumns(table);
+        int index = -1;
+        for (int i : eligibleIndexColumns) {
+            String column = this.selectColumnNames.get(i);
+            PredicateOperator curPred = this.selectOperators.get(i);
+            DataBox value = this.selectDataBoxes.get(i);
+            QueryOperator op = new IndexScanOperator(this.transaction, table, column, curPred, value);
+            if (op.estimateIOCost() < minOp.estimateIOCost()) {
+                minOp = op;
+                index = i;
+            }
+        }
+        
+        return addEligibleSelections(minOp, index);
     }
 
     /**

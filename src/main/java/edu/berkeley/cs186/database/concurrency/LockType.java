@@ -19,6 +19,24 @@ public enum LockType {
             throw new NullPointerException("null lock type");
         }
         // TODO(proj4_part1): implement
+        if (a == NL || b == NL) return true;
+        if (a == X || b == X) return false;
+        if (a == IS) {
+            if (b == IS || b == IX || b == S || b == SIX) return true;
+            else return false;
+        }
+        if (a == IX) {
+            if (b == IS || b == IX) return true;
+            else return false;
+        }
+        if (a == S) {
+            if (b == IS || b == S) return true;
+            return false;
+        }
+        if (a == SIX) {
+            if (b == IS) return true;
+            return false;
+        }
 
         return false;
     }
@@ -50,7 +68,16 @@ public enum LockType {
         if (parentLockType == null || childLockType == null) {
             throw new NullPointerException("null lock type");
         }
+
+        if (childLockType == NL) return true;
         // TODO(proj4_part1): implement
+        if (childLockType == IS || childLockType == S) {
+            return parentLockType != NL;
+        }
+
+        if (childLockType == IX || childLockType == X || childLockType == SIX) {
+            return parentLockType == IX || parentLockType == SIX || parentLockType == X;
+        }
 
         return false;
     }
@@ -66,6 +93,14 @@ public enum LockType {
             throw new NullPointerException("null lock type");
         }
         // TODO(proj4_part1): implement
+        switch (required) {
+            case S: return substitute == X || substitute == SIX || substitute == S;
+            case X: return substitute == X;
+            case IS: return substitute != NL;
+            case IX: return substitute != NL && substitute != IS && substitute != S;
+            case SIX: return substitute == SIX || substitute == X;
+            case NL: return substitute == NL;
+        }
 
         return false;
     }

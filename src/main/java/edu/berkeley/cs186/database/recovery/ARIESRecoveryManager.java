@@ -2,6 +2,7 @@ package edu.berkeley.cs186.database.recovery;
 
 import edu.berkeley.cs186.database.Transaction;
 import edu.berkeley.cs186.database.TransactionContext;
+import edu.berkeley.cs186.database.Transaction.Status;
 import edu.berkeley.cs186.database.common.Pair;
 import edu.berkeley.cs186.database.concurrency.LockContext;
 import edu.berkeley.cs186.database.concurrency.LockType;
@@ -112,7 +113,14 @@ public class ARIESRecoveryManager implements RecoveryManager {
     @Override
     public long commit(long transNum) {
         // TODO(proj5_part1): implement
-        return -1L;
+        TransactionTableEntry tte = this.transactionTable.get(transNum);
+        long commitLSN = this.logManager.appendToLog(new CommitTransactionLogRecord(transNum, tte.lastLSN));
+        tte.lastLSN = commitLSN;
+        this.logManager.flushToLSN(commitLSN);
+        tte.transaction.setStatus(Status.COMMITTING);
+        transactionTable.put(transNum, tte);
+
+        return commitLSN;
     }
 
     /**
@@ -128,7 +136,13 @@ public class ARIESRecoveryManager implements RecoveryManager {
     @Override
     public long abort(long transNum) {
         // TODO(proj5_part1): implement
-        return -1L;
+        TransactionTableEntry tte = this.transactionTable.get(transNum);
+        long abortLSN = this.logManager.appendToLog(new AbortTransactionLogRecord(transNum, tte.lastLSN));
+        tte.lastLSN = abortLSN;
+        tte.transaction.setStatus(Status.ABORTING);
+        transactionTable.put(transNum, tte);
+
+        return abortLSN;
     }
 
     /**
@@ -145,7 +159,17 @@ public class ARIESRecoveryManager implements RecoveryManager {
     @Override
     public long end(long transNum) {
         // TODO(proj5_part1): implement
-        return -1L;
+        TransactionTableEntry tte = this.transactionTable.get(transNum);
+        if (tte.transaction.getStatus() == Status.ABORTING) {
+            rollbackToLSN(transNum, 0);
+        }
+        tte = this.transactionTable.get(transNum);
+        long endLSN = this.logManager.appendToLog(new EndTransactionLogRecord(transNum, tte.lastLSN));
+        tte.lastLSN = endLSN;
+        tte.transaction.setStatus(Status.COMPLETE);
+        this.transactionTable.remove(transNum);
+
+        return endLSN;
     }
 
     /**
@@ -178,7 +202,33 @@ public class ARIESRecoveryManager implements RecoveryManager {
         // Small optimization: if the last record is a CLR we can start rolling
         // back from the next record that hasn't yet been undone.
         long currentLSN = lastRecord.getUndoNextLSN().orElse(lastRecordLSN);
-        // TODO(proj5_part1) implement the rollback logic described above
+        // TODO(proj5_part1) implement the rollback logic described 
+        while (currentLSN > LSN) {
+            LogRecord record = this.logManager.fetchLogRecord(currentLSN);
+            
+            if (record.isUndoable()) {
+                Pair<LogRecord, Boolean> pair = record.undo(lastRecordLSN);
+                long CLRLSN = this.logManager.appendToLog(pair.getFirst());
+                lastRecordLSN = CLRLSN;
+                transactionEntry.lastLSN = CLRLSN;
+                transactionTable.put(transNum, transactionEntry);
+
+                if (pair.getSecond()) this.logManager.flushToLSN(CLRLSN);
+
+                if (record instanceof UpdatePageLogRecord) {
+                    this.dirtyPageTable.put(record.getPageNum().orElseThrow(), CLRLSN);
+                }
+                else if (record instanceof AllocPageLogRecord) {
+                    this.dirtyPageTable.remove(record.getPageNum().orElseThrow());
+                }
+
+                pair.getFirst().redo(diskSpaceManager, bufferManager);
+            }
+
+            Optional<Long> next = record.getPrevLSN();
+            if (next.isEmpty()) break;
+            currentLSN = next.get();
+        }
     }
 
     /**

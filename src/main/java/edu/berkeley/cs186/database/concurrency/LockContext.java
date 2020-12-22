@@ -121,7 +121,8 @@ public class LockContext {
         // TODO(proj4_part2): implement
         if (readonly) throw new UnsupportedOperationException("Unsupported release");
         for (LockContext childContext : children.values()) {
-            if (LockType.parentLock(childContext.getExplicitLockType(transaction)) == this.getExplicitLockType(transaction)) {
+            LockType childType = childContext.getExplicitLockType(transaction);
+            if (childType != this.getExplicitLockType(transaction) && LockType.parentLock(childType) == this.getExplicitLockType(transaction)) {
                 throw new InvalidLockException("Invalid");
             }
             // if (childContext.getExplicitLockType(transaction) == LockType.S && this.getExplicitLockType(transaction) == LockType.IS) {
@@ -344,6 +345,17 @@ public class LockContext {
      */
     public int getNumChildren(TransactionContext transaction) {
         return numChildLocks.getOrDefault(transaction.getTransNum(), 0);
+    }
+
+    public void releaseAllChildren(TransactionContext transaction) {
+        for (LockContext lockContext : children.values()) {
+            lockContext.releaseAllChildren(transaction);
+            try {
+                lockContext.release(transaction);
+            } catch (Exception e) {
+
+            }
+        }
     }
 
     @Override

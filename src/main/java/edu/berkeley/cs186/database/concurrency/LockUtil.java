@@ -89,22 +89,4 @@ public class LockUtil {
         if (parentContext != null) promoteLock(parentContext, LockType.parentLock(requestType), transaction);
         lockContext.promote(transaction, requestType);
     }
-
-    private static void handleSharedLock(LockContext lockContext, LockType requestType, LockContext parentContext, LockType explicitLockType) {
-        TransactionContext transaction = TransactionContext.getTransaction();
-        if (transaction == null | lockContext == null) return;
-        if (LockType.compatible(requestType, explicitLockType)) {
-            ensureSufficientLockHeld(parentContext, LockType.IS);
-            lockContext.acquire(transaction, requestType);
-        }
-    }
-
-    private static void handleISLock(LockContext lockContext, LockType requestType, LockContext parentContext, LockType explicitLockType) {
-        TransactionContext transaction = TransactionContext.getTransaction();
-        if (transaction == null | lockContext == null) return;
-        if (LockType.compatible(requestType, explicitLockType)) {
-            ensureSufficientLockHeld(parentContext, LockType.IS);
-            lockContext.acquire(transaction, requestType);
-        }
-    }
 }

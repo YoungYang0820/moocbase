@@ -233,6 +233,7 @@ public class LockManager {
                     }
                     if (!released) throw new NoLockHeldException("There is no lock held");
                 }
+                this.transactionLocks.put(transaction.getTransNum(), locks);
                 this.transactionLocks.putIfAbsent(transaction.getTransNum(), new ArrayList<>());
                 this.transactionLocks.get(transaction.getTransNum()).add(lock);
             } else {

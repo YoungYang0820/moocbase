@@ -1,5 +1,8 @@
 package edu.berkeley.cs186.database.concurrency;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.berkeley.cs186.database.TransactionContext;
 
 /**
@@ -39,9 +42,69 @@ public class LockUtil {
         LockType effectiveLockType = lockContext.getEffectiveLockType(transaction);
         LockType explicitLockType = lockContext.getExplicitLockType(transaction);
 
-        // TODO(proj4_part2): implement
+        if (LockType.substitutable(effectiveLockType, requestType)) return;
+        if (LockType.substitutable(requestType, effectiveLockType)) {
+            if (explicitLockType == LockType.IS || explicitLockType == LockType.IS || explicitLockType == LockType.SIX)
+                escalateLock(lockContext, requestType, transaction);
+            else promoteLock(lockContext, requestType, transaction);
+            return;
+        }
+        if (explicitLockType == LockType.IX && requestType == LockType.S) {
+            List<ResourceName> names = new ArrayList<>();
+            names.add(lockContext.name);
+            for (LockContext childContext : lockContext.children.values()) {
+                if (childContext.getExplicitLockType(transaction) != LockType.X && childContext.getExplicitLockType(transaction) != LockType.NL) {
+                    names.add(childContext.name);
+                    lockContext.numChildLocks.put(transaction.getTransNum(), lockContext.numChildLocks.get(transaction.getTransNum()) - 1);
+                }
+            }
+            lockContext.lockman.acquireAndRelease(transaction, lockContext.name, LockType.SIX, names);
+            return;
+        }
+        acquireLock(lockContext, requestType, transaction);
+
         return;
     }
 
-    // TODO(proj4_part2) add any helper methods you want
+    private static void acquireLock(LockContext lockContext, LockType requestType, TransactionContext transaction) {
+        LockContext parentContext = lockContext.parentContext();
+        if (parentContext != null) {
+            LockType parentType = parentContext.getExplicitLockType(transaction);
+            if (parentType != LockType.parentLock(requestType) && !(parentType == LockType.IX && requestType == LockType.S)) {
+                if (parentType != LockType.NL) promoteLock(parentContext, LockType.parentLock(requestType), transaction);
+                else acquireLock(parentContext, LockType.parentLock(requestType), transaction);
+            }
+        }
+        lockContext.acquire(transaction, requestType);
+    }
+
+    private static void escalateLock(LockContext lockContext, LockType requestType, TransactionContext transaction) {
+        List<ResourceName> names = new ArrayList<>();
+        names.add(lockContext.name);
+        lockContext.escalate(transaction);
+    }
+
+    private static void promoteLock(LockContext lockContext, LockType requestType, TransactionContext transaction) {
+        LockContext parentContext = lockContext.parentContext();
+        if (parentContext != null) promoteLock(parentContext, LockType.parentLock(requestType), transaction);
+        lockContext.promote(transaction, requestType);
+    }
+
+    private static void handleSharedLock(LockContext lockContext, LockType requestType, LockContext parentContext, LockType explicitLockType) {
+        TransactionContext transaction = TransactionContext.getTransaction();
+        if (transaction == null | lockContext == null) return;
+        if (LockType.compatible(requestType, explicitLockType)) {
+            ensureSufficientLockHeld(parentContext, LockType.IS);
+            lockContext.acquire(transaction, requestType);
+        }
+    }
+
+    private static void handleISLock(LockContext lockContext, LockType requestType, LockContext parentContext, LockType explicitLockType) {
+        TransactionContext transaction = TransactionContext.getTransaction();
+        if (transaction == null | lockContext == null) return;
+        if (LockType.compatible(requestType, explicitLockType)) {
+            ensureSufficientLockHeld(parentContext, LockType.IS);
+            lockContext.acquire(transaction, requestType);
+        }
+    }
 }

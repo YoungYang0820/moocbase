@@ -216,7 +216,6 @@ public class LockContext {
         if (readonly) throw new UnsupportedOperationException("Unsupported escalate");
         if (lockman.getLocks(name).isEmpty()) throw new NoLockHeldException("No lock held");
         LockType currentType = this.getExplicitLockType(transaction);
-        // System.out.println(currentType);
         LockType escalateTo = null;
         if (currentType == LockType.IS) escalateTo = LockType.S;
         if (currentType == LockType.IX || currentType == LockType.SIX) escalateTo = LockType.X;
@@ -226,10 +225,15 @@ public class LockContext {
             else if (escalateTo != LockType.X && childLock == LockType.S) escalateTo = LockType.S;
         }
         if (escalateTo != null) {
+            List<ResourceName> names = new ArrayList<>();
+            names.add(name);
             for (LockContext childContext : this.children.values()) {
-                if (childContext.getExplicitLockType(transaction) != LockType.NL) childContext.release(transaction);
+                if (childContext.getExplicitLockType(transaction) != LockType.NL) {
+                    names.add(childContext.name);
+                    this.numChildLocks.put(transaction.getTransNum(), this.numChildLocks.get(transaction.getTransNum()) - 1);
+                }
             }
-            lockman.promote(transaction, name, escalateTo);
+            lockman.acquireAndRelease(transaction, name, escalateTo, names);
         }
         return;
     }

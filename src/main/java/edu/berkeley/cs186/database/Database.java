@@ -1126,7 +1126,6 @@ public class Database implements AutoCloseable {
         @Override
         public void close() {
             try {
-                // TODO(proj4_part2)
                 LockContext dbContext = lockManager.databaseContext();
                 dbContext.releaseAllChildren(this);
                 dbContext.release(this);
@@ -1228,16 +1227,12 @@ public class Database implements AutoCloseable {
 
         @Override
         protected void startCommit() {
-            // TODO(proj5): replace immediate cleanup() call with job (the commented out code)
-
             transactionContext.deleteAllTempTables();
 
             recoveryManager.commit(transNum);
 
-            this.cleanup();
-            /*
+            // this.cleanup();
             executor.execute(this::cleanup);
-            */
         }
 
         @Override

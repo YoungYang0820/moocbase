@@ -18,7 +18,6 @@ public enum LockType {
         if (a == null || b == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
         if (a == NL || b == NL) return true;
         if (a == X || b == X) return false;
         if (a == IS) {
@@ -70,7 +69,6 @@ public enum LockType {
         }
 
         if (childLockType == NL) return true;
-        // TODO(proj4_part1): implement
         if (childLockType == IS || childLockType == S) {
             return parentLockType != NL && parentLockType != SIX;
         }
@@ -92,7 +90,6 @@ public enum LockType {
         if (required == null || substitute == null) {
             throw new NullPointerException("null lock type");
         }
-        // TODO(proj4_part1): implement
         switch (required) {
             case S: return substitute == X || substitute == SIX || substitute == S;
             case X: return substitute == X;

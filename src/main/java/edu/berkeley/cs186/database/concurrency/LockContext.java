@@ -93,7 +93,6 @@ public class LockContext {
      */
     public void acquire(TransactionContext transaction, LockType lockType)
             throws InvalidLockException, DuplicateLockRequestException {
-        // TODO(proj4_part2): implement
         if (readonly) throw new UnsupportedOperationException("Unsupported acquire");
         if (parent != null && !LockType.canBeParentLock(parent.getEffectiveLockType(transaction), lockType)) {
             throw new InvalidLockException("Invalid request");
@@ -118,19 +117,12 @@ public class LockContext {
      */
     public void release(TransactionContext transaction)
             throws NoLockHeldException, InvalidLockException {
-        // TODO(proj4_part2): implement
         if (readonly) throw new UnsupportedOperationException("Unsupported release");
         for (LockContext childContext : children.values()) {
             LockType childType = childContext.getExplicitLockType(transaction);
             if (childType != this.getExplicitLockType(transaction) && LockType.parentLock(childType) == this.getExplicitLockType(transaction)) {
                 throw new InvalidLockException("Invalid");
             }
-            // if (childContext.getExplicitLockType(transaction) == LockType.S && this.getExplicitLockType(transaction) == LockType.IS) {
-            //     throw new InvalidLockException("Invalid");
-            // }
-            // if (childContext.getExplicitLockType(transaction) == LockType.X && this.getExplicitLockType(transaction) == LockType.IX || this.getExplicitLockType(transaction) == LockType.SIX) {
-            //     throw new InvalidLockException("Invalid");
-            // }
         }
         lockman.release(transaction, name);
         if (parent != null) {
@@ -161,7 +153,6 @@ public class LockContext {
      */
     public void promote(TransactionContext transaction, LockType newLockType)
             throws DuplicateLockRequestException, NoLockHeldException, InvalidLockException {
-        // TODO(proj4_part2): implement
         if (readonly) throw new UnsupportedOperationException("Unsupported promote");
         if (parent != null && !LockType.canBeParentLock(parent.getEffectiveLockType(transaction), newLockType)) {
             throw new InvalidLockException("Invalid request");
@@ -213,7 +204,6 @@ public class LockContext {
      * @throws UnsupportedOperationException if context is readonly
      */
     public void escalate(TransactionContext transaction) throws NoLockHeldException {
-        // TODO(proj4_part2): implement
         if (readonly) throw new UnsupportedOperationException("Unsupported escalate");
         if (lockman.getLocks(name).isEmpty()) throw new NoLockHeldException("No lock held");
         LockType currentType = this.getExplicitLockType(transaction);
@@ -245,7 +235,6 @@ public class LockContext {
      */
     public LockType getExplicitLockType(TransactionContext transaction) {
         if (transaction == null) return LockType.NL;
-        // TODO(proj4_part2): implement
         return lockman.getLockType(transaction, name);
     }
 
@@ -257,7 +246,6 @@ public class LockContext {
      */
     public LockType getEffectiveLockType(TransactionContext transaction) {
         if (transaction == null) return LockType.NL;
-        // TODO(proj4_part2): implement
         if (parent == null) return lockman.getLockType(transaction, name);
         LockType parentType = parent.getEffectiveLockType(transaction);
         if (parentType == LockType.S || parentType == LockType.SIX) return LockType.S;
@@ -272,7 +260,6 @@ public class LockContext {
      * @return true if holds a SIX at an ancestor, false if not
      */
     private boolean hasSIXAncestor(TransactionContext transaction) {
-        // TODO(proj4_part2): implement
         if (parent == null) return false;
         return parent.getExplicitLockType(transaction) == LockType.SIX || parent.hasSIXAncestor(transaction);
     }
@@ -285,7 +272,6 @@ public class LockContext {
      * holds an S or IS lock.
      */
     private List<ResourceName> sisDescendants(TransactionContext transaction) {
-        // TODO(proj4_part2): implement
         List<ResourceName> list = new ArrayList<>();
         for (LockContext childContext : this.children.values()) {
             LockType childLock = childContext.getExplicitLockType(transaction);

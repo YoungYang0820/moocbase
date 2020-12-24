@@ -135,6 +135,7 @@ public class TestRestartRecovery {
         //         2 |      70 | 10000000001L
         //         3 |       * | 10000000003L
         // * indicates the LSN of the abort record that was added for Xact 3 at the end of analysis
+        System.out.println(transactionTable);
         assertFalse(transactionTable.containsKey(1L));
         assertTrue(transactionTable.containsKey(2L));
         assertEquals((long) LSNs.get(6), transactionTable.get(2L).lastLSN);
